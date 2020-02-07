@@ -1,0 +1,36 @@
+{
+  "name": "starkware_crypto",
+  "version": "0.1.3",
+  "description": "Signatures, keys and Pedersen hash on STARK friendly elliptic curve",
+  "main": "signature.js",
+  "scripts": {
+    "test": "node signature_test.js && node signature_example.js"
+  },
+  "keywords": [
+    "stark",
+    "signature",
+    "EC",
+    "Elliptic",
+    "curve",
+    "Cryptography"
+  ],
+  "files": [
+    "signature.js",
+    "signature_test.js",
+    "signature_example.js",
+    "constant_points.js",
+    "signature_test_data.json"
+  ],
+  "dependencies": {
+    "elliptic": "git://github.com/indutny/elliptic.git#v6.5.0",
+    "bn.js": "^4.4.0",
+    "brorand": "^1.0.1",
+    "hash.js": "^1.0.0",
+    "hmac-drbg": "^1.0.0",
+    "inherits": "^2.0.1",
+    "minimalistic-assert": "^1.0.0",
+    "minimalistic-crypto-utils": "^1.0.0"
+  },
+  "author": "StarkWare Industries Ltd.",
+  "license": "Apache-2.0"
+}
