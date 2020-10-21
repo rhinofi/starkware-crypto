@@ -14,148 +14,172 @@
 // and limitations under the License.                                          //
 /////////////////////////////////////////////////////////////////////////////////
 
-const starkware_crypto = require('./signature.js');
+const starkwareCrypto = require('./signature.js');
 const assert = require('assert');
-const test_data = require('./signature_test_data.json');
-
-//=================================================================================================
-// Test Pedersen Hash
-//=================================================================================================
-
-for (var hash_test_data of [
-  test_data.hash_test.pedersen_hash_data_1, test_data.hash_test.pedersen_hash_data_2]) {
-  var result = starkware_crypto.pedersen([
-    hash_test_data.input_1.substring(2),
-    hash_test_data.input_2.substring(2)]);
-  var expectedResult = hash_test_data.output.substring(2);
-  assert(result == expectedResult, 'Got: ' + result + ', Expected: ' + expectedResult);
-}
+const testData = require('./signature_test_data.json');
 
 //=================================================================================================
 // Example: Signing a StarkEx Order:
 //=================================================================================================
+{
+    const privateKey = testData.meta_data.party_a_order.private_key.substring(2);
+    const keyPair = starkwareCrypto.ec.keyFromPrivate(privateKey, 'hex');
+    const publicKey = starkwareCrypto.ec.keyFromPublic(keyPair.getPublic(true, 'hex'), 'hex');
+    const publicKeyX = publicKey.pub.getX();
 
-var private_key = test_data.meta_data.party_a_order.private_key.substring(2);
-var key_pair = starkware_crypto.ec.keyFromPrivate(private_key, 'hex');
-var public_key = starkware_crypto.ec.keyFromPublic(key_pair.getPublic(true, 'hex'), 'hex');
-var public_key_x = public_key.pub.getX();
+    assert(
+        publicKeyX.toString(16) === testData.settlement.party_a_order.public_key.substring(2),
+        `Got: ${publicKeyX.toString(16)}.
+        Expected: ${testData.settlement.party_a_order.public_key.substring(2)}`
+    );
 
-assert(
-  public_key_x.toString(16) === test_data.settlement.party_a_order.public_key.substring(2),
-  'Got: ' + public_key_x.toString(16) +
-  ' Expected: ' + test_data.settlement.party_a_order.public_key.substring(2)
-);
+    const { party_a_order: partyAOrder } = testData.settlement;
+    const msgHash = starkwareCrypto.getLimitOrderMsgHash(
+        partyAOrder.vault_id_sell, // - vault_sell (uint31)
+        partyAOrder.vault_id_buy, // - vault_buy (uint31)
+        partyAOrder.amount_sell, // - amount_sell (uint63 decimal str)
+        partyAOrder.amount_buy, // - amount_buy (uint63 decimal str)
+        partyAOrder.token_sell, // - token_sell (hex str with 0x prefix < prime)
+        partyAOrder.token_buy, // - token_buy (hex str with 0x prefix < prime)
+        partyAOrder.nonce, // - nonce (uint31)
+        partyAOrder.expiration_timestamp // - expiration_timestamp (uint22)
+    );
 
-var party_a_order = test_data.settlement.party_a_order
-var msg = starkware_crypto.get_limit_order_msg(
-  party_a_order.vault_id_sell, // vault_sell (uint31)
-  party_a_order.vault_id_buy, // vault_buy (uint31)
-  party_a_order.amount_sell, // amount_sell (uint63 decimal str)
-  party_a_order.amount_buy, // amount_buy (uint63 decimal str)
-  party_a_order.token_sell, // token_sell (hex str with 0x prefix < prime)
-  party_a_order.token_buy, // token_buy (hex str with 0x prefix < prime)
-  party_a_order.nonce, // nonce (uint31)
-  party_a_order.expiration_timestamp // expiration_timestamp (uint22)
-);
+    assert(msgHash === testData.meta_data.party_a_order.message_hash.substring(2),
+        `Got: ${msgHash}. Expected: ` + testData.meta_data.party_a_order.message_hash.substring(2));
 
-assert(msg === test_data.meta_data.party_a_order.message_hash.substring(2),
-    'Got: ' + msg + ' Expected: ' + test_data.meta_data.party_a_order.message_hash.substring(2)
-);
+    const msgSignature = starkwareCrypto.sign(keyPair, msgHash);
+    const { r, s } = msgSignature;
 
-var msg_signature = starkware_crypto.sign(key_pair, msg);
-var r = msg_signature.r;
-var w = msg_signature.s.invm(starkware_crypto.ec.n);
+    assert(starkwareCrypto.verify(publicKey, msgHash, msgSignature));
+    assert(r.toString(16) === partyAOrder.signature.r.substring(2),
+        `Got: ${r.toString(16)}. Expected: ${partyAOrder.signature.r.substring(2)}`);
+    assert(s.toString(16) === partyAOrder.signature.s.substring(2),
+        `Got: ${s.toString(16)}. Expected: ${partyAOrder.signature.s.substring(2)}`);
 
-assert(starkware_crypto.verify(public_key, msg, msg_signature));
-assert(r.toString(16) === party_a_order.signature.r.substring(2),
-    'Got: ' + r.toString(16) + ' Expected: ' + party_a_order.signature.r.substring(2)
-);
-assert(w.toString(16) === party_a_order.signature.w.substring(2),
-    'Got: ' + w.toString(16) + ' Expected: ' + party_a_order.signature.w.substring(2)
-);
+    // The following is the JSON representation of an order:
+    console.log('Order JSON representation: ');
+    console.log(partyAOrder);
+    console.log('\n');
 
-// The following is the JSON representation of an order:
-console.log('Order JSON representation: ');
-console.log(party_a_order);
-console.log('\n');
 
+    //=============================================================================================
+    // Example: StarkEx key serialization:
+    //=============================================================================================
+
+    const pubXStr = publicKey.pub.getX().toString('hex');
+    const pubYStr = publicKey.pub.getY().toString('hex');
+
+    // Verify Deserialization.
+    const pubKeyDeserialized = starkwareCrypto.ec.keyFromPublic({ x: pubXStr, y: pubYStr }, 'hex');
+    assert(starkwareCrypto.verify(pubKeyDeserialized, msgHash, msgSignature));
+}
 
 //=================================================================================================
 // Example: StarkEx Transfer:
 //=================================================================================================
+{
+    const privateKey = testData.meta_data.transfer_order.private_key.substring(2);
+    const keyPair = starkwareCrypto.ec.keyFromPrivate(privateKey, 'hex');
+    const publicKey = starkwareCrypto.ec.keyFromPublic(keyPair.getPublic(true, 'hex'), 'hex');
+    const publicKeyX = publicKey.pub.getX();
 
-var private_key = test_data.meta_data.transfer_order.private_key.substring(2);
-var key_pair = starkware_crypto.ec.keyFromPrivate(private_key, 'hex');
-var public_key = starkware_crypto.ec.keyFromPublic(key_pair.getPublic(true, 'hex'), 'hex');
-var public_key_x = public_key.pub.getX();
+    assert(publicKeyX.toString(16) === testData.transfer_order.public_key.substring(2),
+        `Got: ${publicKeyX.toString(16)}.
+        Expected: ${testData.transfer_order.public_key.substring(2)}`);
 
-assert( public_key_x.toString(16) === test_data.transfer_order.public_key.substring(2),
-    'Got: ' +  public_key_x.toString(16) +
-    ' Expected: ' + test_data.transfer_order.public_key.substring(2)
-);
+    const transfer = testData.transfer_order;
+    const msgHash = starkwareCrypto.getTransferMsgHash(
+        transfer.amount, // - amount (uint63 decimal str)
+        transfer.nonce, // - nonce (uint31)
+        transfer.sender_vault_id, // - sender_vault_id (uint31)
+        transfer.token, // - token (hex str with 0x prefix < prime)
+        transfer.target_vault_id, // - target_vault_id (uint31)
+        transfer.target_public_key, // - target_public_key (hex str with 0x prefix < prime)
+        transfer.expiration_timestamp // - expiration_timestamp (uint22)
+    );
 
-var transfer = test_data.transfer_order
-var msg = starkware_crypto.get_transfer_msg(
-  transfer.amount, // amount (uint63 decimal str)
-  transfer.nonce, // nonce (uint31)
-  transfer.sender_vault_id, // sender_vault_id (uint31)
-  transfer.token, // token (hex str with 0x prefix < prime)
-  transfer.target_vault_id, // target_vault_id (uint31)
-  transfer.target_public_key, // target_public_key (hex str with 0x prefix < prime)
-  transfer.expiration_timestamp // expiration_timestamp (uint22)
-);
+    assert(msgHash === testData.meta_data.transfer_order.message_hash.substring(2),
+        `Got: ${msgHash}. Expected: ` +
+        testData.meta_data.transfer_order.message_hash.substring(2));
 
-assert(msg === test_data.meta_data.transfer_order.message_hash.substring(2),
-    'Got: ' + msg + ' Expected: ' + test_data.meta_data.transfer_order.message_hash.substring(2)
-);
+    // The following is the JSON representation of a transfer:
+    console.log('Transfer JSON representation: ');
+    console.log(transfer);
+    console.log('\n');
+}
+//=================================================================================================
+// Example: StarkEx Conditional Transfer:
+//=================================================================================================
+{
+    const privateKey = testData.meta_data.conditional_transfer_order.private_key.substring(2);
+    const keyPair = starkwareCrypto.ec.keyFromPrivate(privateKey, 'hex');
+    const publicKey = starkwareCrypto.ec.keyFromPublic(keyPair.getPublic(true, 'hex'), 'hex');
+    const publicKeyX = publicKey.pub.getX();
 
-// The following is the JSON representation of a transfer:
-console.log('Transfer JSON representation: ');
-console.log(transfer);
-console.log('\n');
+    assert(publicKeyX.toString(16) === testData.conditional_transfer_order.public_key.substring(2),
+        `Got: ${publicKeyX.toString(16)}.
+        Expected: ${testData.conditional_transfer_order.public_key.substring(2)}`);
 
+    const transfer = testData.conditional_transfer_order;
+    const msgHash = starkwareCrypto.getTransferMsgHash(
+        transfer.amount, // - amount (uint63 decimal str)
+        transfer.nonce, // - nonce (uint31)
+        transfer.sender_vault_id, // - sender_vault_id (uint31)
+        transfer.token, // - token (hex str with 0x prefix < prime)
+        transfer.target_vault_id, // - target_vault_id (uint31)
+        transfer.target_public_key, // - target_public_key (hex str with 0x prefix < prime)
+        transfer.expiration_timestamp, // - expiration_timestamp (uint22)
+        transfer.condition // - condition (hex str with 0x prefix < prime)
+    );
+
+    assert(msgHash === testData.meta_data.conditional_transfer_order.message_hash.substring(2),
+        `Got: ${msgHash}. Expected: ` +
+        testData.meta_data.conditional_transfer_order.message_hash.substring(2));
+
+    // The following is the JSON representation of a transfer:
+    console.log('Transfer JSON representation: ');
+    console.log(transfer);
+    console.log('\n');
+}
 //=================================================================================================
 // Example: And adding a matching order to create a settlement:
 //=================================================================================================
+{
+    const privateKey = testData.meta_data.party_b_order.private_key.substring(2);
+    const keyPair = starkwareCrypto.ec.keyFromPrivate(privateKey, 'hex');
+    const publicKey = starkwareCrypto.ec.keyFromPublic(keyPair.getPublic(true, 'hex'), 'hex');
+    const publicKeyX = publicKey.pub.getX();
 
-var private_key = test_data.meta_data.party_b_order.private_key.substring(2);
-var key_pair = starkware_crypto.ec.keyFromPrivate(private_key, 'hex');
-var public_key = starkware_crypto.ec.keyFromPublic(key_pair.getPublic(true, 'hex'), 'hex');
-var public_key_x = public_key.pub.getX();
+    assert(publicKeyX.toString(16) === testData.settlement.party_b_order.public_key.substring(2),
+        `Got: ${publicKeyX.toString(16)}.
+        Expected: ${testData.settlement.party_b_order.public_key.substring(2)}`);
 
-assert( public_key_x.toString(16) === test_data.settlement.party_b_order.public_key.substring(2),
-    'Got: ' +  public_key_x.toString(16) +
-    ' Expected: ' + test_data.settlement.party_b_order.public_key.substring(2)
-);
+    const { party_b_order: partyBOrder } = testData.settlement;
+    const msgHash = starkwareCrypto.getLimitOrderMsgHash(
+        partyBOrder.vault_id_sell, // - vault_sell (uint31)
+        partyBOrder.vault_id_buy, // - vault_buy (uint31)
+        partyBOrder.amount_sell, // - amount_sell (uint63 decimal str)
+        partyBOrder.amount_buy, // - amount_buy (uint63 decimal str)
+        partyBOrder.token_sell, // - token_sell (hex str with 0x prefix < prime)
+        partyBOrder.token_buy, // - token_buy (hex str with 0x prefix < prime)
+        partyBOrder.nonce, // - nonce (uint31)
+        partyBOrder.expiration_timestamp // - expiration_timestamp (uint22)
+    );
 
-var party_b_order = test_data.settlement.party_b_order
-var msg = starkware_crypto.get_limit_order_msg(
-  party_b_order.vault_id_sell, // vault_sell (uint31)
-  party_b_order.vault_id_buy, // vault_buy (uint31)
-  party_b_order.amount_sell, // amount_sell (uint63 decimal str)
-  party_b_order.amount_buy, // amount_buy (uint63 decimal str)
-  party_b_order.token_sell, // token_sell (hex str with 0x prefix < prime)
-  party_b_order.token_buy, // token_buy (hex str with 0x prefix < prime)
-  party_b_order.nonce, // nonce (uint31)
-  party_b_order.expiration_timestamp // expiration_timestamp (uint22)
-);
+    assert(msgHash === testData.meta_data.party_b_order.message_hash.substring(2),
+        `Got: ${msgHash}. Expected: ` + testData.meta_data.party_b_order.message_hash.substring(2));
 
-assert(msg === test_data.meta_data.party_b_order.message_hash.substring(2),
-    'Got: ' + msg + ' Expected: ' + test_data.meta_data.party_b_order.message_hash.substring(2)
-);
+    const msgSignature = starkwareCrypto.sign(keyPair, msgHash);
+    const { r, s } = msgSignature;
 
-var msg_signature = starkware_crypto.sign(key_pair, msg);
-var r = msg_signature.r;
-var w = msg_signature.s.invm(starkware_crypto.ec.n);
+    assert(starkwareCrypto.verify(publicKey, msgHash, msgSignature));
+    assert(r.toString(16) === partyBOrder.signature.r.substring(2),
+        `Got: ${r.toString(16)}. Expected: ${partyBOrder.signature.r.substring(2)}`);
+    assert(s.toString(16) === partyBOrder.signature.s.substring(2),
+        `Got: ${s.toString(16)}. Expected: ${partyBOrder.signature.s.substring(2)}`);
 
-assert(starkware_crypto.verify(public_key, msg, msg_signature));
-assert(r.toString(16) === party_b_order.signature.r.substring(2),
-    'Got: ' + r.toString(16) + ' Expected: ' + party_b_order.signature.r.substring(2)
-);
-assert(w.toString(16) === party_b_order.signature.w.substring(2),
-    'Got: ' + w.toString(16) + ' Expected: ' + party_b_order.signature.w.substring(2)
-);
-
-// The following is the JSON representation of a settlement:
-console.log('Settlement JSON representation: ');
-console.log(test_data.settlement);
+    // The following is the JSON representation of a settlement:
+    console.log('Settlement JSON representation: ');
+    console.log(testData.settlement);
+}
