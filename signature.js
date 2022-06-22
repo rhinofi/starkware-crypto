@@ -280,14 +280,12 @@ function hashTransfeMsg(
   receiverPublicKey,
   condition = null
 ) {
-  let w4Message = vault0Bn;
-  w4Message = w4Message.ushln(64).add(vault1Bn);
-  w4Message = w4Message.ushln(64).add(feeVault1Bn);
-  w4Message = w4Message.ushln(32).add(nonceBn);
+  let w4Message = vault0Bn
+    .ushln(64).add(vault1Bn)
+    .ushln(64).add(feeVault1Bn)
+    .ushln(32).add(nonceBn)
+
   w4Message = w4Message.toString(16, 251)
-
-
-  console.log(w4Message)
 
   let w5Message = instructionTypeBn
     .ushln(64).add(amountBn)
@@ -370,7 +368,6 @@ function getTransferWithFeesMsgHash(
   }
 
   // Hash it
-
   return hashTransfeMsg(
     instructionType,
     senderVaultIdBn,
