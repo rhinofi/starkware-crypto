@@ -300,9 +300,9 @@ function hashTransfeMsg(
     feeToken,
     receiverPublicKey,
     // Condition fact is w6
-    ...(condition == null 
+    ...(!condition
     ? []
-    : [condition]),
+    : [pedersen([condition.factRegistryAddress, condition.fact])]),
     w4Message,
     w5Message
   ]
@@ -334,8 +334,7 @@ function getTransferWithFeesMsgHash(
 ) {
   assert(
     hasHexPrefix(token) && hasHexPrefix(feeToken) &&
-    hasHexPrefix(receiverPublicKey) && (condition === null ||
-      hasHexPrefix(condition)), 'Hex strings expected to be prefixed with 0x.'
+    hasHexPrefix(receiverPublicKey)
   );
 
   const amountBn = new BN(amount, 10);
@@ -362,8 +361,9 @@ function getTransferWithFeesMsgHash(
 
   let instructionType = fourBn;
   if (condition !== null) {
-    condition = condition.substring(2);
-    assertInRange(new BN(condition), zeroBn, prime, 'condition');
+    // { fact, factRegistryAddress }
+    const { fact, factRegistryAddress } = condition
+    condition = { fact, factRegistryAddress: factRegistryAddress.substring(2) }
     instructionType = fiveBn;
   }
 
