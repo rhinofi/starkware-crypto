@@ -30,6 +30,8 @@ const maxEcdsaVal =
 const zeroBn = new BN('0', 16);
 const oneBn = new BN('1', 16);
 const twoBn = new BN('2', 16);
+const fourBn = new BN('4', 16);
+const fiveBn = new BN('5', 16);
 const twoPow22Bn = new BN('400000', 16);
 const twoPow31Bn = new BN('80000000', 16);
 const twoPow63Bn = new BN('8000000000000000', 16);
@@ -264,6 +266,124 @@ function getTransferMsgHash(
     );
 }
 
+function hashTransfeMsg(
+  instructionTypeBn,
+  vault0Bn,
+  vault1Bn,
+  feeVault1Bn,
+  amountBn,
+  feeAmountBn,
+  nonceBn,
+  expirationTimestampBn,
+  token0,
+  feeToken,
+  receiverPublicKey,
+  condition = null
+) {
+  let w4Message = vault0Bn
+    .ushln(64).add(vault1Bn)
+    .ushln(64).add(feeVault1Bn)
+    .ushln(32).add(nonceBn)
+
+  w4Message = w4Message.toString(16, 251)
+
+  let w5Message = instructionTypeBn
+    .ushln(64).add(amountBn)
+    .ushln(64).add(feeAmountBn)
+    .ushln(32).add(expirationTimestampBn)
+    .ushln(81)
+
+  w5Message = w5Message.toString(16, 251)
+
+  const wordsToHash = [
+    token0,
+    feeToken,
+    receiverPublicKey,
+    // Condition fact is w6
+    ...(!condition
+    ? []
+    : [pedersen([condition.factRegistryAddress, condition.fact])]),
+    w4Message,
+    w5Message
+  ]
+
+  const msgHash = wordsToHash.reduce((prevHash, component) => 
+    !prevHash
+      ? component
+      : pedersen([prevHash, component])
+  )
+
+  const msgHashBN = new BN(msgHash, 16);
+  assertInRange(msgHashBN, zeroBn, maxEcdsaVal, 'msgHash');
+
+  return msgHash;
+}
+
+function getTransferWithFeesMsgHash(
+  amount,
+  feeAmount,
+  nonce,
+  senderVaultId,
+  token,
+  feeToken,
+  receiverVaultId,
+  feeVaultId,
+  receiverPublicKey,
+  expirationTimestamp,
+  condition = null
+) {
+  assert(
+    hasHexPrefix(token) && hasHexPrefix(feeToken) &&
+    hasHexPrefix(receiverPublicKey)
+  );
+
+  const amountBn = new BN(amount, 10);
+  const feeAmountBn = new BN(feeAmount, 10);
+  const nonceBn = new BN(nonce);
+  const senderVaultIdBn = new BN(senderVaultId);
+  const tokenBn = new BN(token.substring(2), 16);
+  const feeTokenBn = new BN(feeToken.substring(2), 16);
+  const receiverVaultIdBn = new BN(receiverVaultId);
+  const feeVaultIdBn = new BN(feeVaultId);
+  const receiverPublicKeyBn = new BN(receiverPublicKey.substring(2), 16);
+  const expirationTimestampBn = new BN(expirationTimestamp);
+
+  assertInRange(amountBn, zeroBn, twoPow63Bn);
+  assertInRange(feeAmountBn, zeroBn, twoPow63Bn);
+  assertInRange(nonceBn, zeroBn, twoPow31Bn);
+  assertInRange(senderVaultIdBn, zeroBn, twoPow31Bn);
+  assertInRange(tokenBn, zeroBn, prime);
+  assertInRange(feeTokenBn, zeroBn, prime);
+  assertInRange(receiverVaultIdBn, zeroBn, twoPow31Bn);
+  assertInRange(feeVaultIdBn, zeroBn, twoPow31Bn);
+  assertInRange(receiverPublicKeyBn, zeroBn, prime);
+  assertInRange(expirationTimestampBn, zeroBn, twoPow22Bn);
+
+  let instructionType = fourBn;
+  if (condition !== null) {
+    // { fact, factRegistryAddress }
+    const { fact, factRegistryAddress } = condition
+    condition = { fact, factRegistryAddress: factRegistryAddress.substring(2) }
+    instructionType = fiveBn;
+  }
+
+  // Hash it
+  return hashTransfeMsg(
+    instructionType,
+    senderVaultIdBn,
+    receiverVaultIdBn,
+    feeVaultIdBn,
+    amountBn,
+    feeAmountBn,
+    nonceBn,
+    expirationTimestampBn,
+    token.substring(2),
+    feeToken.substring(2),
+    receiverPublicKey.substring(2),
+    condition
+  );
+}
+
 /*
  The function _truncateToN in lib/elliptic/ec/index.js does a shift-right of delta bits,
  if delta is positive, where
@@ -325,5 +445,6 @@ function verify(publicKey, msgHash, msgSignature) {
 
 module.exports = {
     prime, ec: starkEc, constantPoints, shiftPoint, maxEcdsaVal,  // Data.
+    getTransferWithFeesMsgHash, // With fee hash functions
     pedersen, getLimitOrderMsgHash, getTransferMsgHash, sign, verify  // Function.
 };
