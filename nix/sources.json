@@ -1,0 +1,14 @@
+{
+    "rhino-core": {
+        "branch": "devops/update-nixpkgs",
+        "description": "Instructions to deploy the required services for DeversiFi Exchange",
+        "homepage": "",
+        "owner": "rhinofi",
+        "repo": "rhino-core",
+        "rev": "ed82ff9656075889bd477efdc61de07fd2b10fe4",
+        "sha256": "0hzkghnhhywivqfrjf1xxxw7n47fk296r4k8q8vr6g9x5c330qil",
+        "type": "tarball",
+        "url": "https://github.com/rhinofi/rhino-core/archive/ed82ff9656075889bd477efdc61de07fd2b10fe4.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    }
+}

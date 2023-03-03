@@ -1,7 +1,9 @@
-{ pkgs ? import <nixpkgs> {} }:
-pkgs.mkShell {
-  buildInputs = with pkgs; [
-    nodejs-16_x
-    yarn
-  ];
-}
+let
+  pkgs = import ./nix/pkgs.nix {};
+in
+  pkgs.mkShell {
+    inputsFrom = [pkgs.dev-shell-with-node-yarn-berry];
+    packages = with pkgs; [
+      npm-publish
+    ];
+  }

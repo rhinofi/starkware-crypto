@@ -1,7 +1,11 @@
 {
-  "name": "starkware_crypto",
-  "version": "0.1.4",
-  "description": "Signatures, keys and Pedersen hash on STARK friendly elliptic curve",
+  "name": "@rhino.fi/starkware-crypto",
+  "version": "0.1.7",
+  "description": "Copied and adapted from: https://github.com/starkware-libs/starkex-resources/tree/844ac3dcb1f735451457f7eecc6e37cd96d1cb2d/crypto/starkware/crypto/signature",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rhinofi/starkware-crypto.git"
+  },
   "main": "signature.js",
   "scripts": {
     "test": "mocha",

@@ -1,4 +1,11 @@
 # starkware-crypto
+
+---
+
+Copied and adapted from: https://github.com/starkware-libs/starkex-resources/tree/844ac3dcb1f735451457f7eecc6e37cd96d1cb2d/crypto/starkware/crypto/signature
+
+---
+
 A crypto library in js for signing and hashing
 
 
